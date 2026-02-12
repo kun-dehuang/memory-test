@@ -6,8 +6,8 @@ pydantic==2.10.4
 pydantic-settings==2.6.1
 
 # Memory providers
-mem0ai==0.3.3
-zep-python==1.0.8
+mem0ai==1.0.3
+zep-python==2.0.2
 
 # Image processing
 Pillow==11.1.0

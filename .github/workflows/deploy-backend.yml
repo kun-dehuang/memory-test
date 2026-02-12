@@ -1,4 +1,4 @@
-name: Deploy Backend to Railway
+name: Backend Deploy
 
 on:
   push:
@@ -7,26 +7,39 @@ on:
   workflow_dispatch:
 
 jobs:
-  deploy:
+  deploy: 
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v3
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
+      - name: Set up Python
+        uses: actions/setup-python@v4
         with:
-          node-version: '18'
+          python-version: '3.11'
+          cache: 'pip'
 
-      - name: Install Railway CLI
-        run: npm install -g @railway/cli
-
-      - name: Deploy to Railway
+      - name: Install dependencies
+        working-directory: ./backend
         run: |
-          railway login --token ${{ secrets.RAILWAY_TOKEN }}
-          railway link ${{ secrets.RAILWAY_PROJECT_ID }}
-          railway deploy --prod
-        env:
-          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
-          RAILWAY_PROJECT_ID: ${{ secrets.RAILWAY_PROJECT_ID }}
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Build completed
+        run: |
+          echo "Backend build completed successfully!"
+          echo ""
+          echo "To deploy to Railway, please follow these steps:"
+          echo "1. Go to Railway console: https://railway.app/"
+          echo "2. Create a new project"
+          echo "3. Click 'New Project' → 'Deploy from GitHub repo'"
+          echo "4. Select your memory-analyzer repository"
+          echo "5. Set the root directory to 'backend'"
+          echo "6. Configure environment variables:"
+          echo "   - GEMINI_API_KEY: Your Google Gemini API key"
+          echo "   - MONGODB_URI: Your MongoDB Atlas connection string"
+          echo "   - DB_NAME: Your database name (e.g., memory_analyzer)"
+          echo "   - SECRET_KEY: Your JWT secret key"
+          echo "7. Click 'Deploy' to start deployment"
+          echo ""
+          echo "Railway will automatically deploy when you push to main branch."

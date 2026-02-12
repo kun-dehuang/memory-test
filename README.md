@@ -99,8 +99,9 @@ FRONTEND_URL=https://your-username.github.io
 ### 2. Backend (Railway)
 
 1. Create a new Railway project from this repository
-2. Set all environment variables in Railway dashboard
-3. Deploy!
+2. **Set Root Directory**: In Railway project settings, set Root Directory to `backend`
+3. Set all environment variables in Railway dashboard
+4. Deploy!
 
 ### 3. Frontend (GitHub Pages)
 
