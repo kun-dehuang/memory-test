@@ -79,10 +79,25 @@ app = FastAPI(
 
 # Configure CORS
 # Allow all origins in development, but specify your frontend domain in production
-frontend_url = os.getenv("FRONTEND_URL", "*")
+allowed_origins = [
+    "https://kun-dehuang.github.io",
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    "http://localhost:8080",
+    "http://127.0.0.1:8080",
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+]
+
+# 如果环境变量中有配置的额外源，也添加进去
+import os
+extra_origins = os.getenv("ALLOWED_ORIGINS", "")
+if extra_origins:
+    allowed_origins.extend([origin.strip() for origin in extra_origins.split(",")])
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[frontend_url] if frontend_url != "*" else ["*"],
+    allow_origins=allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

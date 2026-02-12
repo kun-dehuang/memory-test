@@ -30,29 +30,41 @@ function App() {
   const [searching, setSearching] = useState(false);
   const [results, setResults] = useState([]);
 
+  // Normalize API URL (remove trailing slash)
+  const normalizedApiUrl = apiBaseUrl.replace(/\/+$/, '');
+
   // API helper
   const api = {
     scan: async () => {
-      const response = await fetch(`${apiBaseUrl}/api/scan`, {
+      const response = await fetch(`${normalizedApiUrl}/api/scan`, {
         method: 'POST',
       });
-      if (!response.ok) throw new Error('Scan failed');
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({ detail: 'Unknown error' }));
+        throw new Error(error.detail || 'Scan failed');
+      }
       return response.json();
     },
     reset: async () => {
-      const response = await fetch(`${apiBaseUrl}/api/reset`, {
+      const response = await fetch(`${normalizedApiUrl}/api/reset`, {
         method: 'DELETE',
       });
-      if (!response.ok) throw new Error('Reset failed');
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({ detail: 'Unknown error' }));
+        throw new Error(error.detail || 'Reset failed');
+      }
       return response.json();
     },
     search: async (query, provider) => {
-      const response = await fetch(`${apiBaseUrl}/api/search`, {
+      const response = await fetch(`${normalizedApiUrl}/api/search`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ query, provider }),
       });
-      if (!response.ok) throw new Error('Search failed');
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({ detail: 'Unknown error' }));
+        throw new Error(error.detail || 'Search failed');
+      }
       return response.json();
     },
   };

@@ -16,7 +16,8 @@ RUN apt-get update && apt-get install -y \
     tcl8.6-dev \
     tk8.6-dev \
     python3-tk \
-    && rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/lib/apt/lists/* \
+    && apt-get clean
 
 # Copy requirements first for better caching
 COPY ./backend/requirements.txt .
@@ -28,7 +29,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 
 # Create photos and identity directories
-RUN mkdir -p photos identity
+RUN mkdir -p backend/photos backend/identity
 
 # Expose port (Railway sets PORT env var)
 EXPOSE 8000
@@ -37,5 +38,5 @@ EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"
 
-# Run the application
+# Run application
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
