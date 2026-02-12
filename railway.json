@@ -1,0 +1,17 @@
+{
+  "$schema": "https://railway.app/railway.schema.json",
+  "build": {
+    "context": "backend",
+    "dockerfile": "Dockerfile"
+  },
+  "volumes": [
+    {
+      "path": "app/photos",
+      "name": "photos"
+    },
+    {
+      "path": "app/identity",
+      "name": "identity"
+    }
+  ]
+}
