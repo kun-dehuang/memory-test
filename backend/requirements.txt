@@ -4,10 +4,11 @@ python-dotenv==1.0.1
 python-multipart==0.0.20
 pydantic==2.10.4
 pydantic-settings==2.6.1
+packaging==24.2
 
 # Memory providers
 mem0ai==1.0.3
-zep-python==2.0.2
+zep-cloud==3.16.0
 
 # Image processing
 Pillow==11.1.0

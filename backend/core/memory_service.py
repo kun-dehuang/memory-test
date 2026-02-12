@@ -19,9 +19,7 @@ except ImportError:
     pass  # pillow-heif not installed, HEIC support not available
 
 from mem0 import Memory
-from zep_python import ZepClient, ZepVector
-from zep_python.user import User
-from zep_python.session import Session
+from zep_cloud import Zep
 
 from .config import get_settings
 
@@ -66,11 +64,6 @@ class GeminiAnalyzer:
         """Load image as bytes for Gemini API."""
         with open(image_path, "rb") as f:
             return f.read()
-
-    def _encode_image_base64(self, image_path: str) -> str:
-        """Encode image to base64 for Gemini API."""
-        with open(image_path, "rb") as f:
-            return base64.b64encode(f.read()).decode("utf-8")
 
     async def extract_protagonist_features(self, image_path: str) -> str:
         """
@@ -127,8 +120,9 @@ class GeminiAnalyzer:
 请根据以上特征识别照片中是否出现主角。
 """
             return protagonist_info + "\n" + base_prompt
-
-        return base_prompt
+        else:
+            # No protagonist features loaded, skip protagonist detection
+            return base_prompt
 
     async def analyze_photo(self, image_path: str) -> Dict[str, Any]:
         """
@@ -318,38 +312,14 @@ class MemoryService:
             self.mem0_client = None
             print("Warning: MEM0_API_KEY not set")
 
-        # Initialize Zep
-        if self.settings.zep_api_base and self.settings.zep_api_key:
-            self.zep_client = ZepClient(
-                api_key=self.settings.zep_api_key,
-                endpoint=self.settings.zep_api_base
+        # Initialize Zep Cloud
+        if self.settings.zep_api_key:
+            self.zep_client = Zep(
+                api_key=self.settings.zep_api_key
             )
-            self._ensure_zep_user_and_session()
         else:
             self.zep_client = None
-            print("Warning: ZEP_API_BASE or ZEP_API_KEY not set")
-
-    def _ensure_zep_user_and_session(self):
-        """Ensure Zep user and session exist."""
-        if not self.zep_client:
-            return
-
-        try:
-            user_id = self.settings.mem0_user_id
-            try:
-                self.zep_client.user.add(user=User(user_id=user_id))
-            except Exception:
-                pass  # User might already exist
-
-            try:
-                self.zep_client.session.add(
-                    session_id=self.settings.zep_session_id,
-                    user_id=user_id,
-                )
-            except Exception:
-                pass  # Session might already exist
-        except Exception as e:
-            print(f"Zep initialization warning: {e}")
+            print("Warning: ZEP_API_KEY not set")
 
     def _get_static_url(self, filename: str) -> str:
         """Generate full static URL for an image."""
@@ -401,7 +371,7 @@ class MemoryService:
         self_path = self.identity_dir / "self.jpg"
         self_path_jpg = self.identity_dir / "self.JPG"
 
-        # Find the self.jpg file (case insensitive)
+        # Find self.jpg file (case insensitive)
         for path in [self_path, self_path_jpg]:
             if path.exists():
                 try:
@@ -417,7 +387,7 @@ class MemoryService:
 
     async def _analyze_photo_concurrent(self, photos: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """
-        Analyze photos concurrently using Gemini with asyncio.gather.
+        Analyze photos concurrently using Gemini with error handling.
 
         Args:
             photos: List of photo dicts with 'path' key
@@ -431,30 +401,31 @@ class MemoryService:
                 photo["analysis"] = {
                     "analysis": "",
                     "has_protagonist": False,
+                    "protagonist_detected": False,
                     "scene": "",
                     "error": "Gemini not configured"
                 }
             return photos
 
         # Create analysis tasks for all photos
-        async def analyze_with_error_handling(photo: Dict[str, Any]) -> Dict[str, Any]:
+        async def analyze_single(photo: Dict[str, Any]) -> Dict[str, Any]:
             try:
-                analysis_result = await self.gemini.analyze_photo(photo["path"])
-                photo["analysis"] = analysis_result
+                result = await self.gemini.analyze_photo(photo["path"])
+                photo["analysis"] = result
+                return photo
             except Exception as e:
                 photo["analysis"] = {
                     "analysis": "",
                     "has_protagonist": False,
+                    "protagonist_detected": False,
                     "scene": "",
                     "error": str(e)
                 }
-            return photo
+                return photo
 
         # Run all analyses concurrently
-        results = await asyncio.gather(
-            *[analyze_with_error_handling(photo) for photo in photos],
-            return_exceptions=False
-        )
+        tasks = [analyze_single(photo) for photo in photos]
+        results = await asyncio.gather(*tasks, return_exceptions=False)
 
         return results
 
@@ -464,14 +435,30 @@ class MemoryService:
 
         Process:
         1. Initialize protagonist features from identity/self.jpg
-        2. Scan photos directory
-        3. Analyze each photo with Gemini concurrently
-        4. Store results in both Mem0 and Zep
+        2. Ensure Zep user and session exist
+        3. Scan photos directory
+        4. Analyze each photo with Gemini concurrently
+        5. Store results in both Mem0 and Zep
         """
         # Step 1: Initialize protagonist
         await self.initialize_protagonist()
 
-        # Step 2: Scan photos
+        # Step 2: Ensure Zep user and session exist
+        if self.zep_client:
+            try:
+                await self.zep_client.user.add(user_id=self.settings.mem0_user_id)
+            except Exception:
+                pass  # User might already exist
+
+            try:
+                await self.zep_client.session.add(
+                    session_id=self.settings.zep_session_id,
+                    user_id=self.settings.mem0_user_id,
+                )
+            except Exception:
+                pass  # Session might already exist
+
+        # Step 3: Scan photos
         photos = self._scan_photos_directory()
 
         if not photos:
@@ -482,10 +469,10 @@ class MemoryService:
                 "photos": []
             }
 
-        # Step 3: Analyze photos concurrently
+        # Step 4: Analyze photos concurrently
         photos = await self._analyze_photo_concurrent(photos)
 
-        # Step 4: Store in memory providers
+        # Step 5: Store in memory providers
         mem0_stored = 0
         zep_stored = 0
 
@@ -502,15 +489,18 @@ class MemoryService:
                 content_for_zep = scene or full_analysis
             else:
                 # Fallback to basic description if no analysis
-                content_for_mem0 = f"Photo: {metadata['filename']}"
+                filename = metadata.get('filename', 'unknown')
+                content_for_mem0 = f"Photo: {filename}"
                 if metadata.get('gps'):
                     content_for_mem0 += f", taken at GPS: {metadata['gps']}"
+                if metadata.get('width') and metadata.get('height'):
+                    content_for_mem0 += f", dimensions: {metadata['width']}x{metadata['height']}"
                 content_for_zep = content_for_mem0
 
             # Metadata for storage
             storage_metadata = {
-                "filename": metadata['filename'],
-                "image_url": photo['static_url'],
+                "filename": metadata.get('filename', ''),
+                "image_url": photo.get('static_url', ''),
                 "has_protagonist": has_protagonist,
                 "scene": scene,
                 **{k: v for k, v in metadata.items() if k not in ['filename', 'error']}
@@ -526,22 +516,27 @@ class MemoryService:
                     )
                     mem0_stored += 1
                 except Exception as e:
-                    print(f"Mem0 storage error for {metadata['filename']}: {e}")
+                    print(f"Mem0 storage error for {metadata.get('filename')}: {e}")
 
-            # Store in Zep
+            # Store in Zep Cloud
             if self.zep_client:
                 try:
-                    self.zep_client.memory.add(
+                    # Zep Cloud uses message format for memory
+                    from zep_cloud import Message
+
+                    await self.zep_client.memory.add(
                         session_id=self.settings.zep_session_id,
-                        memories=[{
-                            "role": "user",
-                            "content": content_for_zep,
-                            "metadata": storage_metadata
-                        }]
+                        messages=[
+                            Message(
+                                role="user",
+                                content=content_for_zep,
+                                metadata=storage_metadata
+                            )
+                        ]
                     )
                     zep_stored += 1
                 except Exception as e:
-                    print(f"Zep storage error for {metadata['filename']}: {e}")
+                    print(f"Zep storage error for {metadata.get('filename')}: {e}")
 
         return {
             "total_photos": len(photos),
@@ -569,10 +564,16 @@ class MemoryService:
         # Clear Zep
         if self.zep_client:
             try:
-                self.zep_client.session.delete(
+                # Delete and recreate session
+                await self.zep_client.session.delete(
                     session_id=self.settings.zep_session_id
                 )
-                self._ensure_zep_user_and_session()
+                # Recreate user and session
+                await self.zep_client.user.add(user_id=self.settings.mem0_user_id)
+                await self.zep_client.session.add(
+                    session_id=self.settings.zep_session_id,
+                    user_id=self.settings.mem0_user_id,
+                )
                 results["zep"] = "cleared"
             except Exception as e:
                 results["zep"] = f"error: {str(e)}"
@@ -629,25 +630,25 @@ class MemoryService:
             return [{"error": str(e)}]
 
     async def _search_zep(self, query: str) -> List[Dict[str, Any]]:
-        """Search memories using Zep."""
+        """Search memories using Zep Cloud."""
         if not self.zep_client:
             return [{"error": "Zep not configured"}]
 
         try:
-            results = self.zep_client.memory.search(
+            from zep_cloud import Message
+
+            results = await self.zep_client.memory.search(
                 session_id=self.settings.zep_session_id,
                 text=query,
-                search_scope="messages",
                 limit=10
             )
 
             formatted = []
             for r in results:
-                # Convert Zep distance to similarity score (lower distance = higher similarity)
-                similarity = 1.0 - min(r.dist or 0, 1.0)
+                # Zep Cloud returns Message objects with content and metadata
                 formatted.append({
                     "content": r.content or '',
-                    "score": similarity,
+                    "score": 1.0 - (r.dist or 0),  # Convert distance to similarity
                     "image_url": (r.metadata or {}).get('image_url', ''),
                     "metadata": r.metadata or {}
                 })

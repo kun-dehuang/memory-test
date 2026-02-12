@@ -6,8 +6,8 @@ A full-stack multi-modal RAG application for comparing Mem0 and Zep memory provi
 
 - **Backend**: FastAPI deployed on Railway
 - **Frontend**: React + Vite + Tailwind CSS deployed on GitHub Pages
-- **Vision AI**: Google Gemini 1.5 Flash for image analysis
-- **Memory Providers**: Mem0 and Zep for semantic storage/retrieval
+- **Vision AI**: Google Gemini 1.5 Flash
+- **Memory Providers**: Mem0 and Zep Cloud for semantic storage/retrieval
 
 ## Core Features
 
@@ -28,7 +28,7 @@ A full-stack multi-modal RAG application for comparing Mem0 and Zep memory provi
 
 ### 3. Dual Storage Strategy
 - **Mem0**: Stores rich text content with protagonist tags for entity learning
-- **Zep**: Stores scene description with EXIF/GPS metadata
+- **Zep Cloud**: Stores scene description with EXIF/GPS metadata
 
 ### 4. Smart Query Processing
 - Automatically replaces "我", "我的", "我也要", "我在" with "【主角】"
@@ -41,26 +41,24 @@ A full-stack multi-modal RAG application for comparing Mem0 and Zep memory provi
 ├── backend/
 │   ├── core/
 │   │   ├── __init__.py
-│   │   ├── config.py          # Configuration management with env vars
+│   │   ├── config.py          # Configuration management
 │   │   └── memory_service.py  # Core memory logic with Gemini integration
 │   ├── main.py                # FastAPI application
 │   ├── requirements.txt       # Python dependencies
 │   ├── Dockerfile            # Railway deployment
-│   └── .env.example          # Environment variables template
+│   └── .env.example           # Environment variables template
 ├── frontend/
 │   ├── src/
 │   │   ├── components/
-│   │   │   └── ResultCard.jsx  # Result card with protagonist badge
-│   │   ├── App.jsx
-│   │   ├── main.jsx
-│   │   └── index.css
+│   │   │   └── ResultCard.jsx   # Result card with protagonist badge
+│   │   └── App.jsx
 │   ├── package.json
 │   ├── vite.config.js
 │   ├── tailwind.config.js
 │   └── index.html
 ├── identity/
 │   └── self.jpg              # Protagonist reference photo
-└── photos/                   # Upload your images here
+└── photos/                       # Upload your images here
 ```
 
 ## Setup & Deployment
@@ -70,7 +68,10 @@ A full-stack multi-modal RAG application for comparing Mem0 and Zep memory provi
 Copy `backend/.env.example` to `backend/.env` and configure:
 
 ```bash
-# Required for image analysis
+# Zep Cloud Configuration (Required)
+ZEP_API_KEY=your_zep_api_key_here
+
+# Gemini Configuration (Required for image analysis)
 GEMINI_API_KEY=your_gemini_api_key_here
 GEMINI_MODEL=gemini-1.5-flash
 
@@ -81,11 +82,6 @@ GEMINI_MODEL=gemini-1.5-flash
 MEM0_API_KEY=your_mem0_api_key_here
 MEM0_API_BASE=https://api.mem0.ai
 MEM0_USER_ID=memory-test-user
-
-# Zep Configuration
-ZEP_API_KEY=your_zep_api_key_here
-ZEP_API_BASE=https://your-cloud-zep-instance.zep-cloud.com
-ZEP_SESSION_ID=memory-test-session
 
 # App Configuration
 PHOTOS_DIR=photos
@@ -99,34 +95,15 @@ FRONTEND_URL=https://your-username.github.io
 ### 2. Backend (Railway)
 
 1. Create a new Railway project from this repository
-2. **Set Root Directory**: In Railway project settings, set Root Directory to `backend`
+2. Set Root Directory to `backend` in Railway project settings
 3. Set all environment variables in Railway dashboard
 4. Deploy!
 
 ### 3. Frontend (GitHub Pages)
 
 1. Install dependencies: `cd frontend && npm install`
-2. Build the app: `npm run build`
+2. Build app: `npm run build`
 3. Deploy `dist/` folder to GitHub Pages
-
-### 4. Local Development
-
-**Backend:**
-```bash
-cd backend
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-pip install -r requirements.txt
-cp .env.example .env  # Then edit .env with your keys
-uvicorn main:app --reload
-```
-
-**Frontend:**
-```bash
-cd frontend
-npm install
-npm run dev
-```
 
 ## API Endpoints
 
@@ -134,7 +111,7 @@ npm run dev
 |----------|--------|-------------|
 | `/api/scan` | POST | Scan photos with Gemini analysis and store in memory |
 | `/api/reset` | DELETE | Clear all memories from both providers |
-| `/api/search` | POST | Search with `{ "query": "...", "provider": "mem0|zep" }` |
+| `/api/search` | POST | Search with `{ "query": "...", "provider": "mem0\|zep" }` |
 | `/static/*` | GET | Access uploaded photos |
 | `/identity/*` | GET | Access identity photos |
 
@@ -143,13 +120,12 @@ npm run dev
 1. Place protagonist reference photo in `identity/self.jpg`
 2. Add photos to analyze in `photos/` directory
 3. Click "Re-scan Photos" to:
-   - Extract protagonist features
-   - Analyze each photo concurrently
+   - Extract protagonist features from `identity/self.jpg`
+   - Analyze each photo concurrently with Gemini
    - Store in both Mem0 and Zep
 4. Search using natural language:
-   - "我在咖啡馆的照片" (Photos of me at the cafe)
+   - "我在咖啡馆的照片" (Photos of me at cafe)
    - "有主角的户外照片" (Outdoor photos with protagonist)
-   - "消费场景" (Consumption scenarios)
 5. Compare results between Mem0 and Zep
 
 ## Technical Details
@@ -172,3 +148,17 @@ npm run dev
 - User query: "我在咖啡馆的照片"
 - Preprocessed: "【主角】在咖啡馆的照片"
 - Enables semantic matching against tagged memories
+
+## Key Dependencies
+
+### Backend
+- `zep-cloud` - Zep Cloud Python SDK
+- `mem0ai` - Mem0 AI Memory
+- `google-generativeai` - Gemini Vision API
+- `pillow` + `pillow-heif` - Image processing
+- `pydantic` + `pydantic-settings` - Settings management
+
+### Sources
+- [Zep Cloud Documentation](https://help.getzep.com/)
+- [Zep Cloud GitHub](https://github.com/getzep/zep-cloud)
+- [zep-cloud PyPI](https://pypi.org/project/zep-cloud/)
