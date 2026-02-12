@@ -63,6 +63,42 @@ A full-stack multi-modal RAG application for comparing Mem0 and Zep memory provi
 
 ## Setup & Deployment
 
+### 0. Local Development
+
+#### Backend
+```bash
+cd backend
+
+# Create virtual environment
+python3 -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Configure environment
+cp .env.example .env
+# Edit .env with your API keys
+
+# Run server
+uvicorn main:app --reload --port 8000
+```
+
+Backend will be available at `http://localhost:8000`
+
+#### Frontend
+```bash
+cd frontend
+
+# Install dependencies
+npm install
+
+# Run dev server
+npm run dev
+```
+
+Frontend will be available at `http://localhost:5173`
+
 ### 1. Environment Variables
 
 Copy `backend/.env.example` to `backend/.env` and configure:
@@ -96,8 +132,15 @@ FRONTEND_URL=https://your-username.github.io
 
 1. Create a new Railway project from this repository
 2. Set Root Directory to `backend` in Railway project settings
-3. Set all environment variables in Railway dashboard
-4. Deploy!
+3. Create volumes for persistent storage:
+   - Path: `/app/photos`, Name: `photos`
+   - Path: `/app/identity`, Name: `identity`
+4. Set all environment variables in Railway dashboard
+5. Deploy!
+
+**Uploading photos to Railway:**
+- Use Railway CLI: `railway volume upload --path ./photos --service <service-name>`
+- Or use WebShell in Railway dashboard to upload files directly
 
 ### 3. Frontend (GitHub Pages)
 

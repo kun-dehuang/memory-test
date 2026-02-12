@@ -13,7 +13,7 @@ class Settings(BaseSettings):
     mem0_user_id: str = "memory-test-user"
 
     # Zep Configuration
-    zep_api_base: str = ""
+    zep_api_base: str = "https://api.getzep.com"
     zep_session_id: str = "memory-test-session"
 
     # App Configuration
@@ -23,7 +23,7 @@ class Settings(BaseSettings):
     frontend_url: str = "https://kun-dehuang.github.io"
 
     # Gemini Configuration
-    gemini_model: str = "gemini-1.5-flash"
+    gemini_model: str = "models/gemini-2.5-flash"
     gemini_analysis_prompt: str = f"""
     你是一位专业的视觉人类学家。请详细描述这批照片中的所有视觉要素。
 
